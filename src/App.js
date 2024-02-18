@@ -152,15 +152,17 @@ function App() {
       window.removeEventListener('keydown', handleKeyPress);
     };
   }, [waitingForInput]);
-  
+
   useEffect(() => {
     if (countdown === 3) {
       console.log(`Recognized Gesture: ${recognizedGesture}`);
       printRandomComponent();
+      runHandpose();
+
     }
   }, [countdown, recognizedGesture]);
 
-  runHandpose();
+  // runHandpose();
 
   return (
     <div className="App">
@@ -207,19 +209,16 @@ function App() {
         <div
           style={{
             position: "absolute",
-            marginLeft: "auto",
-            marginRight: "auto",
-            left: -900,
-            right: 0,
-            top: 130,
-            textAlign: "center",
-            zIndex: 9,
-            width: 100,
+            left: 0,
+            right: 900,
+            top: 200,
+            width: 20,
             // height: 200,
           }}
         >
           <img src={randomComponent} /> 
         </div>
+        <div>{recognizedGesture}</div>
       </header>
     </div>
   );
