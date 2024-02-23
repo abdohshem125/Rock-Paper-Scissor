@@ -1,163 +1,183 @@
-import React, { useRef, useState, useEffect } from 'react';
-import * as handpose from "@tensorflow-models/handpose";
-import Webcam from 'react-webcam';
-import './App.css';
-import { drawHand } from './utilities';
-import * as fp from "fingerpose";
-import img1 from "../src/images_Ai/1.png";
-import img2 from "../src/images_Ai/2.png";
-import img3 from "../src/images_Ai/3.png";
+import React, { useState, useEffect, useRef } from "react";
 import * as tf from "@tensorflow/tfjs";
-function App() {
+import * as handpose from "@tensorflow-models/handpose";
+import Webcam from "react-webcam";
+import { drawHand } from "./utilities";
+import rock from "../src/images_Ai/rock.png";
+import paper from "../src/images_Ai/paper.png";
+import scissor from "../src/images_Ai/scissors.png";
+
+const App = () => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const recognizedGestureRef = useRef(null);
-  const randomComponentRef = useRef(null);
+  const [gesture, setGesture] = useState(null);
+  const [computerChoice, setComputerChoice] = useState(null);
+  const [started, setStarted] = useState(false); // State to track if the game has started
+  const [winner, setWinner] = useState(null); // State to track the winner
 
-  const components = [img1, img2, img3];
-  const [randomComponent, setRandomComponent] = useState("");
-  const [recognizedGesture, setRecognizedGesture] = useState(null);
-  const [isKeyboardPressed, setIsKeyboardPressed] = useState(false);
-  const [countdown, setCountdown] = useState(5);
-  const [modelLoaded, setModelLoaded] = useState(false);
-  const [chosenComponents, setChosenComponents] = useState([]);
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      setStarted(true); // Set started to true when any key is pressed
+    };
 
-  const handleKeyPress = () => {
-    setIsKeyboardPressed(true);
-  };
+    document.addEventListener("keydown", handleKeyPress);
 
-  const getRockGesture = () => {
-    const RockGesture = new fp.GestureDescription('rock');
-    RockGesture.addCurl(fp.Finger.Thumb, fp.FingerCurl.NoCurl, 1.0);
-    RockGesture.addCurl(fp.Finger.Thumb, fp.FingerCurl.HalfCurl, 0.5);
-    RockGesture.addCurl(fp.Finger.Index, fp.FingerCurl.FullCurl, 1.0);
-    RockGesture.addCurl(fp.Finger.Index, fp.FingerCurl.HalfCurl, 0.9);
-    RockGesture.addCurl(fp.Finger.Middle, fp.FingerCurl.FullCurl, 1.0);
-    RockGesture.addCurl(fp.Finger.Middle, fp.FingerCurl.HalfCurl, 0.9);
-    RockGesture.addCurl(fp.Finger.Ring, fp.FingerCurl.FullCurl, 1.0);
-    RockGesture.addCurl(fp.Finger.Ring, fp.FingerCurl.HalfCurl, 0.9);
-    RockGesture.addCurl(fp.Finger.Pinky, fp.FingerCurl.FullCurl, 1.0);
-    RockGesture.addCurl(fp.Finger.Pinky, fp.FingerCurl.HalfCurl, 0.9);
-    return RockGesture;
-  };
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, []);
 
-  const getPaperGesture = () => {
-    const PaperGesture = new fp.GestureDescription('paper');
-    for (let finger of fp.Finger.all) {
-      PaperGesture.addCurl(finger, fp.FingerCurl.NoCurl, 1.0);
+  useEffect(() => {
+    if (started) {
+      const runHandpose = async () => {
+        const net = await handpose.load();
+        console.log("Handpose model loaded.");
+
+        // Detection loop
+        const intervalId = setInterval(() => {
+          detect(net);
+        }, 100);
+
+        return () => clearInterval(intervalId);
+      };
+
+      runHandpose();
     }
-    return PaperGesture;
-  };
-
-  const getScissorsGesture = () => {
-    const ScissorsGesture = new fp.GestureDescription('scissors');
-    ScissorsGesture.addCurl(fp.Finger.Index, fp.FingerCurl.NoCurl, 1.0);
-    ScissorsGesture.addCurl(fp.Finger.Middle, fp.FingerCurl.NoCurl, 1.0);
-    ScissorsGesture.addCurl(fp.Finger.Ring, fp.FingerCurl.FullCurl, 1.0);
-    ScissorsGesture.addCurl(fp.Finger.Ring, fp.FingerCurl.HalfCurl, 0.9);
-    ScissorsGesture.addCurl(fp.Finger.Pinky, fp.FingerCurl.FullCurl, 1.0);
-    ScissorsGesture.addCurl(fp.Finger.Pinky, fp.FingerCurl.HalfCurl, 0.9);
-    return ScissorsGesture;
-  };
-
-  const runHandpose = async () => {
-    const net = await handpose.load();
-    console.log("Handpose model loaded.");
-
-    setModelLoaded(true);
-
-    const intervalId = setInterval(() => {
-      detect(net);
-    }, 500); // Reduce interval duration
-
-    return () => clearInterval(intervalId); // Cleanup interval
-  };
+  }, [started]);
 
   const detect = async (net) => {
     if (
       typeof webcamRef.current !== "undefined" &&
       webcamRef.current !== null &&
-      webcamRef.current.video.readyState === 4 &&
-      canvasRef.current !== null &&
-      isKeyboardPressed
+      webcamRef.current.video.readyState === 4
     ) {
+      // Get video properties
       const video = webcamRef.current.video;
-      const hands = await net.estimateHands(video);
+      const videoWidth = webcamRef.current.video.videoWidth;
+      const videoHeight = webcamRef.current.video.videoHeight;
 
-      if (hands.length > 0) {
-        const GE = new fp.GestureEstimator([
-          getRockGesture(),
-          getPaperGesture(),
-          getScissorsGesture(),
-        ]);
-        const gesture = await GE.estimate(hands[0].landmarks, 8);
+      // Set video dimensions
+      webcamRef.current.video.width = videoWidth;
+      webcamRef.current.video.height = videoHeight;
 
-        if (gesture.gestures !== undefined && gesture.gestures.length > 0) {
-          const currentGesture = gesture.gestures[0].name;
+      // Set canvas dimensions
+      canvasRef.current.width = videoWidth;
+      canvasRef.current.height = videoHeight;
 
-          if (currentGesture !== recognizedGestureRef.current) {
-            setRecognizedGesture(currentGesture);
-            recognizedGestureRef.current = currentGesture;
-          }
+      // Make detections
+      const hand = await net.estimateHands(video);
+      console.log(hand);
 
-          let uniqueIndex = Math.floor(Math.random() * components.length);
-          setRandomComponent(components[uniqueIndex]);
-          randomComponentRef.current = components[uniqueIndex];
-          setChosenComponents([...chosenComponents, uniqueIndex]);
+      if (hand.length > 0) {
+        const fingers = hand[0].landmarks;
+        const thumbTip = fingers[4];
+        const indexTip = fingers[8];
+        const middleTip = fingers[12];
+        const ringTip = fingers[16];
+        const pinkyTip = fingers[20];
 
-          console.log(`Detected gesture: ${currentGesture}`);
-          console.log(`Random component: ${components[uniqueIndex]}`);
+        // Check if thumb, index, and middle fingers are up
+        if (
+          thumbTip[1] < indexTip[1] &&
+          thumbTip[1] < middleTip[1] &&
+          thumbTip[1] < ringTip[1] &&
+          thumbTip[1] < pinkyTip[1]
+        ) {
+          setGesture("rock");
+        } else if (
+          thumbTip[1] > indexTip[1] &&
+          thumbTip[1] > middleTip[1] &&
+          thumbTip[1] > ringTip[1] &&
+          thumbTip[1] > pinkyTip[1]
+        ) {
+          setGesture("paper");
+        } else {
+          setGesture("scissors");
         }
-      }
-
-      const ctx = canvasRef.current.getContext("2d");
-      if (ctx) {
-        drawHand(hands, ctx);
       }
     }
   };
-  
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+
+  const generateComputerChoice = () => {
+    const choices = [rock, paper, scissor];
+    const randomIndex = Math.floor(Math.random() * choices.length);
+    return choices[randomIndex];
+  };
 
   useEffect(() => {
-    const loadModel = async () => {
-      try {
-        await handpose.load();
-        console.log("Handpose model loaded locally.");
-        runHandpose();
-      } catch (error) {
-        console.error("Error loading handpose model:", error);
+    if (gesture) {
+      const computerChoice = generateComputerChoice();
+      setComputerChoice(computerChoice);
+
+      // Determine the winner
+      if (
+        (gesture === "rock" && computerChoice === scissor) ||
+        (gesture === "paper" && computerChoice === rock) ||
+        
+      
+        (gesture === "scissors" && computerChoice === paper)
+      ) {
+        setWinner("Player");
+      } else if (
+        (computerChoice === "rock" && gesture === scissor) ||
+        (computerChoice === "paper" && gesture === rock) ||
+        (gesture === "paper" && computerChoice === scissor)||
+        (gesture === "rock" && computerChoice === paper)||
+        (computerChoice === "scissors" && gesture === paper)
+      ) {
+        setWinner("Computer");
+      } else {
+        setWinner("no one");
       }
-    };
-    if (modelLoaded) {
-      const countdownInterval = setInterval(() => {
-        setCountdown((prevCountdown) => prevCountdown - 1);
-      }, 1000);
-      setTimeout(() => clearInterval(countdownInterval), 5000);
-    } else {
-      loadModel();
     }
-  }, [modelLoaded, isKeyboardPressed]);
+  }, [gesture]);
 
   return (
-    <div className="container">
-      <div className="left-panel">
-        <div className="ai-frame">
-          <img src={randomComponent} alt="Random Component" />
-        </div>
-      </div>
-      <div className="middle-panel">
-        <div className="countdown">{countdown}</div>
-      </div>
-      <div className="right-panel">
-        <Webcam ref={webcamRef} className="webcam" />
-        <canvas ref={canvasRef} className="canvas" />
-      </div>
+    <div>
+      {!started && <p>Press any key to start the game</p>}
+      {started && (
+        <>
+          <Webcam
+            ref={webcamRef}
+            mirrored={true}
+            style={{
+              position: "absolute",
+              marginLeft: "auto",
+              marginRight: "auto",
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              zIndex: 9,
+              width: 640,
+              height: 480,
+            }}
+          />
+          <canvas
+            ref={canvasRef}
+            style={{
+              position: "absolute",
+              marginLeft: "auto",
+              marginRight: "auto",
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              zIndex: 9,
+              width: 640,
+              height: 480,
+            }}
+          />
+          {gesture && (
+            <div>
+              <p>Your gesture: {gesture}</p>
+              {computerChoice && <p>Computer choice: <img src={computerChoice}></img></p>}
+              
+              {winner && <p>{winner} wins!</p>}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
-}
+};
 
 export default App;
