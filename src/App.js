@@ -14,6 +14,7 @@ const App = () => {
   const [computerChoice, setComputerChoice] = useState(null);
   const [started, setStarted] = useState(false); // State to track if the game has started
   const [winner, setWinner] = useState(null); // State to track the winner
+  const [handDetected, setHandDetected] = useState(false); // State to track if hand is detected
 
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -68,7 +69,11 @@ const App = () => {
       const hand = await net.estimateHands(video);
       console.log(hand);
 
+      // Check if hand is detected
       if (hand.length > 0) {
+        // Set hand detected to true
+        setHandDetected(true);
+        
         const fingers = hand[0].landmarks;
         const thumbTip = fingers[4];
         const indexTip = fingers[8];
@@ -94,6 +99,9 @@ const App = () => {
         } else {
           setGesture("scissors");
         }
+      } else {
+        // Set hand detected to false
+        setHandDetected(false);
       }
     }
   };
@@ -105,7 +113,7 @@ const App = () => {
   };
 
   useEffect(() => {
-    if (gesture) {
+    if (gesture && handDetected) {
       const computerChoice = generateComputerChoice();
       setComputerChoice(computerChoice);
 
@@ -113,16 +121,14 @@ const App = () => {
       if (
         (gesture === "rock" && computerChoice === scissor) ||
         (gesture === "paper" && computerChoice === rock) ||
-        
-      
         (gesture === "scissors" && computerChoice === paper)
       ) {
         setWinner("Player");
       } else if (
         (computerChoice === "rock" && gesture === scissor) ||
         (computerChoice === "paper" && gesture === rock) ||
-        (gesture === "paper" && computerChoice === scissor)||
-        (gesture === "rock" && computerChoice === paper)||
+        (gesture === "paper" && computerChoice === scissor) ||
+        (gesture === "rock" && computerChoice === paper) ||
         (computerChoice === "scissors" && gesture === paper)
       ) {
         setWinner("Computer");
@@ -130,7 +136,7 @@ const App = () => {
         setWinner("no one");
       }
     }
-  }, [gesture]);
+  }, [gesture, handDetected]);
 
   return (
     <div>
@@ -169,8 +175,7 @@ const App = () => {
           {gesture && (
             <div>
               <p>Your gesture: {gesture}</p>
-              {computerChoice && <p>Computer choice: <img src={computerChoice}></img></p>}
-              
+              {computerChoice && <p>Computer choice: <img src={computerChoice} alt="Computer choice"></img></p>}
               {winner && <p>{winner} wins!</p>}
             </div>
           )}
