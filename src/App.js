@@ -16,6 +16,8 @@ const App = () => {
   const [winner, setWinner] = useState(null); // State to track the winner
   const [handDetected, setHandDetected] = useState(false); // State to track if hand is detected
 
+
+  
   useEffect(() => {
     const handleKeyPress = (event) => {
       setStarted(true); // Set started to true when any key is pressed
@@ -37,7 +39,7 @@ const App = () => {
         // Detection loop
         const intervalId = setInterval(() => {
           detect(net);
-        }, 100);
+        }, 3000);
 
         return () => clearInterval(intervalId);
       };
